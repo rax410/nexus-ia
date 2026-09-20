@@ -1,0 +1,6 @@
+{
+  "name": "Nexus - Assistant Web",
+  "description": "Assistant web intelligent Nexus créé par le vrai Rax.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

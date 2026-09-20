@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowUp, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
+import { ArrowUp, Loader2, Sparkles, ShieldCheck, Mic } from 'lucide-react';
 import { ChatMessage, ChatSession } from './types';
 import { GeminiSidebar } from './components/GeminiSidebar';
 import { GeminiHeader } from './components/GeminiHeader';
 import { ChatMessageItem } from './components/ChatMessageItem';
 import { SuggestedPrompts } from './components/SuggestedPrompts';
 import { NexusAvatar } from './components/NexusAvatar';
+import { NexusVoiceModal } from './components/NexusVoiceModal';
 
 const DEFAULT_WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-0',
@@ -45,6 +46,7 @@ export default function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(true);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -242,6 +244,42 @@ export default function App() {
     );
   };
 
+  const handleVoiceNewMessage = (userText: string, assistantReply: string) => {
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userMsg: ChatMessage = {
+      id: `user-voice-${Date.now()}`,
+      role: 'user',
+      content: userText,
+      timestamp: nowTime,
+    };
+    const assistantMsg: ChatMessage = {
+      id: `assistant-voice-${Date.now() + 1}`,
+      role: 'assistant',
+      content: assistantReply,
+      timestamp: nowTime,
+    };
+
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === currentSessionId) {
+          const updatedTitle =
+            s.messages.length <= 1
+              ? userText.length > 25
+                ? userText.slice(0, 25) + '...'
+                : userText
+              : s.title;
+          return {
+            ...s,
+            title: updatedTitle,
+            messages: [...s.messages, userMsg, assistantMsg],
+            updatedAt: Date.now(),
+          };
+        }
+        return s;
+      })
+    );
+  };
+
   const isFreshConversation = messages.length <= 1;
 
   return (
@@ -267,6 +305,7 @@ export default function App() {
         <GeminiHeader
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           onReset={handleResetCurrentSession}
+          onOpenVoice={() => setIsVoiceModalOpen(true)}
           hasApiKey={hasApiKey}
           messageCount={messages.length}
         />
@@ -354,6 +393,16 @@ export default function App() {
 
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
+                  id="btn-open-voice-mode"
+                  type="button"
+                  onClick={() => setIsVoiceModalOpen(true)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 hover:text-white border border-cyan-700/50 hover:border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.25)] active:scale-95 group"
+                  title="Ouvrir l'interface vocale Nexus (parlez au rond interactif)"
+                >
+                  <Mic className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                </button>
+
+                <button
                   id="btn-gemini-send"
                   type="submit"
                   disabled={!input.trim() || loading}
@@ -383,6 +432,13 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Interactive Voice Mode Modal with animated Orb (Le Rond) */}
+      <NexusVoiceModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        onNewMessage={handleVoiceNewMessage}
+      />
     </div>
   );
 }

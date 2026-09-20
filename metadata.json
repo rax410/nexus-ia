@@ -1,6 +1,6 @@
 {
   "name": "Nexus - Assistant Web",
-  "description": "Assistant IA universel et polyvalent Nexus créé par le vrai Rax.",
-  "requestFramePermissions": [],
+  "description": "Assistant IA universel et polyvalent Nexus créé par le vrai Rax avec mode vocal interactif.",
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

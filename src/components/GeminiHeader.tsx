@@ -1,9 +1,10 @@
-import { Menu, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react';
+import { Menu, ShieldCheck, Sparkles, RefreshCw, Mic } from 'lucide-react';
 import { NexusAvatar } from './NexusAvatar';
 
 interface GeminiHeaderProps {
   onToggleSidebar: () => void;
   onReset: () => void;
+  onOpenVoice?: () => void;
   hasApiKey: boolean;
   messageCount: number;
 }
@@ -11,6 +12,7 @@ interface GeminiHeaderProps {
 export function GeminiHeader({
   onToggleSidebar,
   onReset,
+  onOpenVoice,
   hasApiKey,
   messageCount,
 }: GeminiHeaderProps) {
@@ -52,9 +54,22 @@ export function GeminiHeader({
       </div>
 
       <div className="flex items-center gap-2">
+        {onOpenVoice && (
+          <button
+            id="btn-header-voice"
+            type="button"
+            onClick={onOpenVoice}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-700/50 shadow-sm transition-all"
+            title="Ouvrir le mode vocal interactif avec le rond"
+          >
+            <Mic className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span className="hidden xs:inline sm:inline">Mode Voix</span>
+          </button>
+        )}
+
         <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1e1f20] border border-[#333538] text-xs text-[#c4c7c5]">
           <span className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-          <span className="text-[11px]">{hasApiKey ? 'Gemini 3.8 Flash' : 'Moteur Nexus'}</span>
+          <span className="text-[11px]">{hasApiKey ? 'Nexus AI' : 'Moteur Universel'}</span>
         </div>
 
         {messageCount > 1 && (

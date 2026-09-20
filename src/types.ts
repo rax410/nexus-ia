@@ -4,6 +4,8 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   source?: string;
+  imageUrl?: string;
+  audioUrl?: string;
 }
 
 export interface ChatSession {

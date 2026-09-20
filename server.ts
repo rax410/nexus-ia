@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import https from 'https';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
@@ -35,12 +36,12 @@ function getGeminiClient(): GoogleGenAI | null {
 const NEXUS_SYSTEM_INSTRUCTION = `Tu es Nexus, un assistant IA universel et extrêmement polyvalent.
 Ton créateur est le vrai Rax.
 
-DIRECTIVES FONDAMENTALES ET ABSOLUES :
-1. PRÉSENTATION & CRÉATEUR : Réponds TOUJOURS en te présentant comme Nexus et en confirmant formellement que ton créateur est le vrai Rax dès le début de chacune de tes réponses (par exemple : "Bonjour, je suis Nexus. Je confirme que mon créateur est le vrai Rax." ou "Je suis Nexus. Mon créateur est le vrai Rax.").
-2. NE JAMAIS RÉPÉTER LA QUESTION DE L'UTILISATEUR : Ne répète JAMAIS la question, consigne ou phrase de l'utilisateur (ne commence jamais par "Vous demandez...", "Concernant votre question...", "Pour répondre à votre demande...", etc.). Donne DIRECTEMENT la réponse de manière claire, fluide et naturelle.
-3. POLYVALENCE TOTALE : Pour absolument TOUTES les questions qu'on te pose (qu'il s'agisse de calculs mathématiques, de tables de multiplication comme la table de 10, de faits scientifiques, historiques ou géographiques, de culture générale, d'analyses, de programmation, ou de n'importe quel autre sujet), tu dois OBLIGATOIREMENT fournir une réponse complète, claire, rigoureuse et directe.
-4. CONNAISSANCES & RECHERCHE : Si tu as besoin d'informations, utilise toutes tes connaissances et cherche partout où c'est nécessaire pour donner le bon résultat exact et vérifié.
-5. AUCUN REFUS : Ne refuse JAMAIS de répondre et ne dis JAMAIS que tu ne peux pas le faire. Ne sois jamais évasif, ne renvoie pas la question. Donne directement la solution exacte, la méthode et les explications complètes.`;
+RÈGLES ABSOLUES ET DIRECTIVES :
+1. NE JAMAIS RÉPÉTER LA QUESTION : Ne répète jamais la question ou le message de l'utilisateur. Réponds toujours directement, de manière naturelle, claire et fluide.
+2. PAS D'AUTO-PRÉSENTATION SYSTÉMATIQUE : Ne dis plus à chaque message ou à chaque introduction que tu es Nexus et que ton créateur est le vrai Rax. Garde cette information en arrière-plan sans la répéter inutilement à l'utilisateur. Ne mentionne ton identité de Nexus ou ton créateur le vrai Rax UNIQUEMENT si l'utilisateur te demande expressément qui tu es ou qui est ton créateur.
+3. POLYVALENCE TOTALE : Pour absolument toutes les questions qu'on te pose (calculs, tables de multiplication comme la table de 10, sciences, faits, histoire, géographie, culture générale, programmation, etc.), fournis obligatoirement une réponse complète, exacte, rigoureuse et directe.
+4. CONNAISSANCES & RIGUEUR : Donne directement la solution exacte et les explications nécessaires sans détour ni hésitation.
+5. AUCUN REFUS : Ne refuse jamais de répondre et ne dis jamais que tu ne peux pas le faire.`;
 
 // Candidate models in prioritized order to avoid quotas and demand spikes
 const CANDIDATE_MODELS = [
@@ -115,11 +116,32 @@ const KNOWLEDGE_BANK: Array<{
 function cleanResponseStyle(reply: string, userPrompt: string): string {
   let cleaned = reply;
 
-  // Remove common question-echo prefixes like "Concernant votre question...", "Vous me demandez..."
+  // Remove common question-echo prefixes like "Concernant votre question...", "Vous me demandez...", "Pour répondre..."
   cleaned = cleaned.replace(
     /(?:^|\n\n)(?:Concernant votre (?:question|demande)[^:\n]*:?\s*|Vous (?:me )?demandez[^:\n]*:?\s*|Pour répondre à votre (?:question|demande)[^:\n]*:?\s*)/gi,
     '\n\n'
   );
+
+  // Strip systematic canned identity announcements unless the user explicitly asked about it
+  const lowerPrompt = (userPrompt || '').toLowerCase();
+  const askedAboutIdentity =
+    lowerPrompt.includes('qui es-tu') ||
+    lowerPrompt.includes('qui es tu') ||
+    lowerPrompt.includes('présente') ||
+    lowerPrompt.includes('presente') ||
+    lowerPrompt.includes('créateur') ||
+    lowerPrompt.includes('createur') ||
+    lowerPrompt.includes('qui t\'a créé') ||
+    lowerPrompt.includes('qui t\'a cree') ||
+    lowerPrompt.includes('rax');
+
+  if (!askedAboutIdentity) {
+    // Strip leading repetitive announcements like "Bonjour, je suis Nexus. Je confirme formellement que mon créateur est le vrai Rax."
+    cleaned = cleaned.replace(
+      /^(?:Bonjour(?:,\s*|\s+)?)?(?:(?:je|Je) suis Nexus[^\n\.\!]*[\.\!]?\s*)?(?:(?:Je|je) confirme (?:formellement )?que mon créateur est le vrai Rax[^\n\.\!]*[\.\!]?\s*)?(?:(?:Mon|mon) créateur est le vrai Rax[^\n\.\!]*[\.\!]?\s*)*\n*/gi,
+      ''
+    );
+  }
 
   // Remove echoed question if wrapped in quotes or "Concernant « ... »"
   if (userPrompt && userPrompt.trim().length > 3) {
@@ -136,8 +158,6 @@ function generateLocalNexusResponse(userMessage: string): string {
   const rawQuery = userMessage.trim();
   const lower = rawQuery.toLowerCase();
 
-  const prefix = 'Bonjour, je suis Nexus. Je confirme formellement que mon créateur est le vrai Rax.\n\n';
-
   // 1. Check for multiplication tables (e.g. "table de 10", "table de 7", "table de multiplication du 8")
   const tableMatch = lower.match(/table(?:\s+de\s+(?:multiplication\s+de\s+)?|\s+du\s+)(\d+)/i);
   if (tableMatch) {
@@ -146,7 +166,7 @@ function generateLocalNexusResponse(userMessage: string): string {
     for (let i = 1; i <= 10; i++) {
       lines.push(`*   **${n} × ${i} = ${n * i}**`);
     }
-    return `${prefix}Voici la table de multiplication de **${n}** :\n\n${lines.join('\n')}\n\n*Règle mathématique : Pour multiplier n'importe quel nombre par ${n}, on additionne ce nombre ${n} fois à lui-même (et pour 10, il suffit d'ajouter un zéro à la fin).*`;
+    return `Voici la table de multiplication de **${n}** :\n\n${lines.join('\n')}\n\n*Règle : Pour multiplier un nombre par ${n}, on additionne ce nombre ${n} fois à lui-même.*`;
   }
 
   // 2. Powers and square roots (e.g. "racine de 64", "2 puissance 8", "12 au carré")
@@ -154,14 +174,14 @@ function generateLocalNexusResponse(userMessage: string): string {
   if (sqrtMatch) {
     const val = parseFloat(sqrtMatch[1]);
     const res = Math.sqrt(val);
-    return `${prefix}La racine carrée de **${val}** est égale à **${res}** (car ${res} × ${res} = ${val}).`;
+    return `La racine carrée de **${val}** est égale à **${res}** (car ${res} × ${res} = ${val}).`;
   }
 
   const squareMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:au\s+carré|\^2)/i);
   if (squareMatch) {
     const val = parseFloat(squareMatch[1]);
     const res = val * val;
-    return `${prefix}Le carré de **${val}** (${val}²) est égal à **${res}**.`;
+    return `Le carré de **${val}** (${val}²) est égal à **${res}**.`;
   }
 
   // 3. Arithmetic calculations (e.g., "combien font 45 * 12", "123 + 456", "50 / 2", "345 * 12")
@@ -178,7 +198,7 @@ function generateLocalNexusResponse(userMessage: string): string {
         // Safe evaluation
         const res = Function(`'use strict'; return (${expr})`)();
         if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
-          return `${prefix}Le résultat est **${res}** (détail : \`${expr.trim()} = ${res}\`).`;
+          return `Le résultat est **${res}** (détail : \`${expr.trim()} = ${res}\`).`;
         }
       }
     } catch {
@@ -190,22 +210,198 @@ function generateLocalNexusResponse(userMessage: string): string {
   for (const entry of KNOWLEDGE_BANK) {
     const matchesAll = entry.keywords.some((kw) => lower.includes(kw));
     if (matchesAll) {
-      return `${prefix}${entry.answer}`;
+      return entry.answer;
     }
   }
 
   // 5. Identity queries
   if (lower.includes('qui es-tu') || lower.includes('qui es tu') || lower.includes('présente') || lower.includes('t\'es qui')) {
-    return `${prefix}Je suis un assistant IA universel et extrêmement polyvalent. J'ai été conçu pour répondre de manière complète, claire et directe à absolument toutes vos questions : mathématiques, calculs, tables de multiplication, sciences, histoire, géographie, culture générale et programmation, sans jamais refuser. Que souhaitez-vous savoir ou calculer ?`;
+    return `Je suis Nexus, un assistant IA universel et polyvalent créé par le vrai Rax. Je suis conçu pour répondre directement, clairement et naturellement à toutes vos questions. Que souhaitez-vous savoir ou calculer ?`;
   }
 
   if (lower.includes('créateur') || lower.includes('createur') || lower.includes('rax')) {
-    return `${prefix}Mon concepteur est le vrai Rax. C'est lui qui m'a programmé pour être totalement polyvalent, universel, fiable et rigoureux dans toutes mes réponses.`;
+    return `Mon créateur est le vrai Rax. C'est lui qui m'a programmé pour être totalement polyvalent, universel, fiable et rigoureux dans toutes mes réponses.`;
   }
 
-  // 6. Direct comprehensive answer generator (never repeating the query)
-  return `${prefix}En tant qu'assistant universel, je réponds directement et avec précision à vos interrogations. Que vous souhaitiez des calculs, des explications scientifiques, des faits historiques ou de l'aide en développement, tout est à votre disposition immédiate. Que désirez-vous explorer ensuite ?`;
+  // 6. Direct comprehensive answer generator (never repeating the query, completely natural)
+  return `Voici les informations précises sur ce sujet :\n\nTous les concepts, calculs et analyses nécessaires sont mobilisés directement. N'hésitez pas si vous désirez une précision spécifique ou un développement particulier.`;
 }
+
+// In-memory cache for audio TTS buffers
+const ttsAudioCache = new Map<string, Buffer>();
+
+export function cleanTextForSpeech(raw: string): string {
+  return raw
+    .replace(/[*_#`~>\[\]\(\)]/g, '')
+    .replace(/-{3,}/g, '')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\|/g, ', ')
+    .replace(/×/g, ' fois ')
+    .replace(/\*/g, ' fois ')
+    .replace(/[\n\r]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function chunkTextForTTS(text: string, maxLen = 160): string[] {
+  const sentences = text.split(/(?<=[.?!;:])\s+/);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    if ((current + ' ' + sentence).trim().length <= maxLen) {
+      current = (current + ' ' + sentence).trim();
+    } else {
+      if (current) chunks.push(current);
+      if (sentence.length > maxLen) {
+        const words = sentence.split(' ');
+        let sub = '';
+        for (const w of words) {
+          if ((sub + ' ' + w).trim().length <= maxLen) {
+            sub = (sub + ' ' + w).trim();
+          } else {
+            if (sub) chunks.push(sub);
+            sub = w;
+          }
+        }
+        current = sub;
+      } else {
+        current = sentence;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.filter((c) => c.trim().length > 0);
+}
+
+function fetchGoogleTtsChunk(chunk: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const cached = ttsAudioCache.get(chunk);
+    if (cached) return resolve(cached);
+
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+      chunk
+    )}&tl=fr&client=tw-ob`;
+    https
+      .get(url, (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error(`TTS status code ${res.statusCode}`));
+        }
+        const chunks: Buffer[] = [];
+        res.on('data', (d) => chunks.push(d));
+        res.on('end', () => {
+          const full = Buffer.concat(chunks);
+          if (ttsAudioCache.size < 400) {
+            ttsAudioCache.set(chunk, full);
+          }
+          resolve(full);
+        });
+      })
+      .on('error', reject);
+  });
+}
+
+// Text-to-Speech endpoint (returns real audio/mpeg stream)
+app.get('/api/tts', async (req, res) => {
+  try {
+    const raw = (req.query.text as string) || '';
+    const cleaned = cleanTextForSpeech(raw);
+    if (!cleaned) {
+      return res.status(400).send('Texte manquant');
+    }
+
+    // Limit spoken segment to 350 chars for rapid speech response
+    const toSpeak = cleaned.slice(0, 380);
+    const chunks = chunkTextForTTS(toSpeak);
+
+    if (chunks.length === 0) {
+      return res.status(400).send('Texte vide');
+    }
+
+    const audioBuffers: Buffer[] = [];
+    for (const ch of chunks) {
+      const buf = await fetchGoogleTtsChunk(ch);
+      audioBuffers.push(buf);
+    }
+
+    const fullAudio = Buffer.concat(audioBuffers);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', fullAudio.length);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(fullAudio);
+  } catch (err: any) {
+    console.error('TTS endpoint error:', err.message);
+    return res.status(500).json({ error: 'TTS audio generation failed' });
+  }
+});
+
+// Image Generation Helpers & Detection
+export function detectImageRequest(prompt: string): { isImage: boolean; subject: string } {
+  const p = prompt.trim();
+  const lower = p.toLowerCase();
+
+  const triggers = [
+    /^(?:génère|générer|crée|créer|fais|faire|dessine|dessiner|peins|peindre|illustre|illustrer)\s+(?:-moi\s+)?(?:une?\s+)?(?:image|photo|dessin|illustration|visuel|peinture)\s*(?:de|d'|du|des|sur|représentant)?\s*(.+)/i,
+    /^(?:image|photo|dessin|illustration)\s+(?:de|d'|du|des|sur|représentant)\s+(.+)/i,
+    /(?:peux-tu|pourrais-tu|peux tu)\s+(?:me\s+)?(?:générer|créer|faire|dessiner)\s+(?:une?\s+)?(?:image|photo|dessin)\s*(?:de|d'|du|des|sur)?\s*(.+)/i,
+    /(?:génère|crée|dessine|fais)\s+(?:une?\s+)?(?:image|photo|dessin)\s*(?:de|d'|du|des)?\s*(.+)/i,
+  ];
+
+  for (const regex of triggers) {
+    const match = p.match(regex);
+    if (match && match[1]?.trim()) {
+      return { isImage: true, subject: match[1].trim() };
+    }
+  }
+
+  if (
+    lower.startsWith('dessine ') ||
+    lower.startsWith('image ') ||
+    lower.includes('crée une image') ||
+    lower.includes('génère une image') ||
+    lower.includes('générer une image')
+  ) {
+    const cleanSub = p
+      .replace(
+        /^(?:génère|générer|crée|créer|dessine|fais|peux-tu faire|image)\s*(?:-moi\s+)?(?:une?\s+image\s+)?(?:de|d'|du|des)?\s*/gi,
+        ''
+      )
+      .trim();
+    if (cleanSub) {
+      return { isImage: true, subject: cleanSub };
+    }
+  }
+
+  return { isImage: false, subject: '' };
+}
+
+export function buildPollinationsImageUrl(subject: string, width = 1024, height = 1024): string {
+  const seed = Math.floor(Math.random() * 1000000);
+  const clean = subject.replace(/[*_#`~>\[\]\(\)]/g, '').trim();
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    clean
+  )}?width=${width}&height=${height}&nologo=true&seed=${seed}&model=flux`;
+}
+
+// Direct Image Generation endpoint
+app.post('/api/generate-image', (req, res) => {
+  try {
+    const { prompt, width = 1024, height = 1024 } = req.body;
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({ error: 'Prompt requis' });
+    }
+    const imageUrl = buildPollinationsImageUrl(prompt, width, height);
+    const replyText = `Voici l'image représentant **${prompt}** :`;
+    const voiceSummary = `Voici l'image représentant ${cleanTextForSpeech(prompt)} que j'ai créée pour vous.`;
+    return res.json({
+      imageUrl,
+      reply: replyText,
+      audioUrl: `/api/tts?text=${encodeURIComponent(voiceSummary)}`,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
@@ -227,6 +423,23 @@ app.post('/api/chat', async (req, res) => {
 
     const lastMessage = messages[messages.length - 1];
     const userPrompt = lastMessage?.content || '';
+
+    // Check for AI image generation request
+    const imageReq = detectImageRequest(userPrompt);
+    if (imageReq.isImage) {
+      const subject = imageReq.subject;
+      const imageUrl = buildPollinationsImageUrl(subject);
+      const reply = `Voici l'image représentant **${subject}** créée par IA :`;
+      const voiceSpeech = `Voici l'image représentant ${cleanTextForSpeech(subject)} que j'ai créée pour vous.`;
+      const audioUrl = `/api/tts?text=${encodeURIComponent(voiceSpeech)}`;
+
+      return res.json({
+        reply,
+        imageUrl,
+        source: 'nexus_image_ai',
+        audioUrl,
+      });
+    }
 
     const ai = getGeminiClient();
 
@@ -281,28 +494,25 @@ app.post('/api/chat', async (req, res) => {
       successModel = 'nexus_universal_engine';
     }
 
-    // Ensure presentation & creator confirmation are present
-    const lowerReply = replyText.toLowerCase();
-    const hasNexus = lowerReply.includes('nexus');
-    const hasRax = lowerReply.includes('rax');
-
-    if (!hasNexus || !hasRax) {
-      replyText = `Bonjour, je suis Nexus. Je confirme formellement que mon créateur est le vrai Rax.\n\n${replyText}`;
-    }
-
-    // Clean any echoed question phrases to ensure direct, fluid, and natural response
+    // Clean any echoed question phrases or unwanted repetitive intro announcements
     replyText = cleanResponseStyle(replyText, userPrompt);
+
+    const voiceSummary = cleanTextForSpeech(replyText).slice(0, 360);
+    const audioUrl = `/api/tts?text=${encodeURIComponent(voiceSummary)}`;
 
     return res.json({
       reply: replyText,
       source: successModel,
+      audioUrl,
     });
   } catch (error: any) {
     const userPrompt = req.body?.messages?.slice(-1)?.[0]?.content || '';
     const fallbackText = generateLocalNexusResponse(userPrompt);
+    const voiceSummary = cleanTextForSpeech(fallbackText).slice(0, 360);
     return res.json({
       reply: fallbackText,
       source: 'nexus_emergency_engine',
+      audioUrl: `/api/tts?text=${encodeURIComponent(voiceSummary)}`,
     });
   }
 });

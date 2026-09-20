@@ -1,4 +1,4 @@
-import { Sparkles, UserCheck, Code2, Compass } from 'lucide-react';
+import { Sparkles, UserCheck, Code2, Compass, Image as ImageIcon } from 'lucide-react';
 
 interface SuggestedPromptsProps {
   onSelectPrompt: (prompt: string) => void;
@@ -6,16 +6,16 @@ interface SuggestedPromptsProps {
 
 const GEMINI_SUGGESTIONS = [
   {
-    icon: UserCheck,
-    title: 'Identité officielle',
-    subtitle: 'Qui es-tu et qui t\'a créé ?',
-    prompt: 'Présente-toi et confirme qui est ton créateur.',
+    icon: ImageIcon,
+    title: 'Générer une image IA',
+    subtitle: 'Créer un visuel IA instantanément',
+    prompt: 'Crée une image d\'une ville cyberpunk futuriste avec des néons bleus et violets',
   },
   {
     icon: Sparkles,
-    title: 'Capacités de Nexus',
-    subtitle: 'Que peux-tu accomplir pour moi ?',
-    prompt: 'Quelles sont tes capacités en tant qu\'assistant web conçu par le vrai Rax ?',
+    title: 'Mode Vocal & Conversation',
+    subtitle: 'Parler directement à Nexus à voix haute',
+    prompt: 'Explique-moi les dernières découvertes sur l\'exploration spatiale',
   },
   {
     icon: Code2,
@@ -27,7 +27,7 @@ const GEMINI_SUGGESTIONS = [
     icon: Compass,
     title: 'Brainstorming & Idées',
     subtitle: 'Explorer des concepts innovants',
-    prompt: 'Donne-moi 3 idées de projets innovants que le vrai Rax approuverait.',
+    prompt: 'Donne-moi 3 idées de projets innovants avec de l\'IA et du multimédia.',
   },
 ];
 

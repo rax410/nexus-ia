@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Markdown from 'react-markdown';
-import { User, Copy, Check, Volume2, VolumeX, ShieldCheck } from 'lucide-react';
+import { User, Copy, Check, Volume2, VolumeX, ShieldCheck, Download, Sparkles } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { NexusAvatar } from './NexusAvatar';
 
@@ -11,6 +11,7 @@ interface ChatMessageItemProps {
 export function ChatMessageItem({ message }: ChatMessageItemProps) {
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isAssistant = message.role === 'assistant';
 
@@ -24,25 +25,97 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
     }
   };
 
-  const handleSpeak = () => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (speaking) {
+  const fallbackSpeechSynthesis = (textToSpeak: string) => {
+    if (!('speechSynthesis' in window)) {
+      setSpeaking(false);
+      return;
+    }
+    try {
       window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = 'fr-FR';
+      utterance.rate = 1.0;
+
+      const voices = window.speechSynthesis.getVoices();
+      const frVoice =
+        voices.find(
+          (v) =>
+            v.lang.toLowerCase().startsWith('fr') &&
+            (v.name.toLowerCase().includes('google') ||
+              v.name.toLowerCase().includes('natural') ||
+              v.name.toLowerCase().includes('premium'))
+        ) ||
+        voices.find((v) => v.lang.toLowerCase().startsWith('fr')) ||
+        null;
+
+      if (frVoice) {
+        utterance.voice = frVoice;
+      }
+
+      utterance.onend = () => setSpeaking(false);
+      utterance.onerror = () => setSpeaking(false);
+
+      setSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setSpeaking(false);
+    }
+  };
+
+  const handleSpeak = () => {
+    if (speaking) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       setSpeaking(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(message.content);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 1.0;
+    const cleaned = message.content
+      .replace(/[*_#`~>\[\]\(\)]/g, '')
+      .replace(/-{3,}/g, '')
+      .replace(/https?:\/\/\S+/g, '')
+      .replace(/\|/g, ', ')
+      .replace(/×/g, ' fois ')
+      .replace(/\*/g, ' fois ')
+      .replace(/[\n\r]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
+    if (!cleaned) return;
 
     setSpeaking(true);
-    window.speechSynthesis.speak(utterance);
+
+    try {
+      let audio = audioRef.current;
+      if (!audio) {
+        audio = new Audio();
+        audioRef.current = audio;
+      }
+
+      const textSnippet = cleaned.slice(0, 360);
+      audio.src = `/api/tts?text=${encodeURIComponent(textSnippet)}`;
+
+      audio.onended = () => setSpeaking(false);
+      audio.onerror = () => {
+        fallbackSpeechSynthesis(textSnippet);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          fallbackSpeechSynthesis(textSnippet);
+        });
+      }
+    } catch {
+      fallbackSpeechSynthesis(cleaned.slice(0, 360));
+    }
   };
 
   if (!isAssistant) {
@@ -97,6 +170,34 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
               <Markdown>{message.content}</Markdown>
             </div>
           </div>
+
+          {/* AI Generated Image Display */}
+          {message.imageUrl && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[#3c4043] bg-[#1b1d22] max-w-md shadow-xl">
+              <div className="relative group">
+                <img
+                  src={message.imageUrl}
+                  alt="Génération IA Nexus"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-auto max-h-96 object-cover rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]"
+                  loading="lazy"
+                />
+                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-1.5 text-[11px] text-cyan-300">
+                  <Sparkles className="w-3 h-3 text-cyan-300" />
+                  <span>Image IA Nexus</span>
+                </div>
+                <a
+                  href={message.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs font-medium backdrop-blur-md border border-white/20 flex items-center gap-1.5 transition-colors shadow-lg"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Ouvrir en HD</span>
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Action pills (Copy, Speak) */}
           <div className="flex items-center gap-2 pt-2 text-[#8e918f]">

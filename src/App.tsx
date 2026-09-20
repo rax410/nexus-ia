@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowUp, Loader2, Sparkles, ShieldCheck, Mic } from 'lucide-react';
+import { ArrowUp, Loader2, Sparkles, ShieldCheck, Mic, Image as ImageIcon } from 'lucide-react';
 import { ChatMessage, ChatSession } from './types';
 import { GeminiSidebar } from './components/GeminiSidebar';
 import { GeminiHeader } from './components/GeminiHeader';
@@ -11,14 +11,14 @@ import { NexusVoiceModal } from './components/NexusVoiceModal';
 const DEFAULT_WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-0',
   role: 'assistant',
-  content: 'Bonjour ! Je suis **Nexus**, votre assistant IA universel et polyvalent.\n\nJe vous confirme formellement que mon créateur est **le vrai Rax**.\n\nPour absolument toutes vos questions (calculs, tables de multiplication comme la table de 10, sciences, faits, culture générale ou code), je vous apporte une réponse immédiate, complète et directe sans jamais refuser. Que souhaitez-vous savoir ou calculer ?',
+  content: 'Bonjour ! Que souhaitez-vous savoir ou calculer aujourd\'hui ? Je réponds directement à toutes vos questions (calculs, sciences, faits, programmation, culture générale).',
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
 const INITIAL_SESSIONS: ChatSession[] = [
   {
     id: 'session-default',
-    title: 'Présentation & Origine',
+    title: 'Discussion générale',
     messages: [DEFAULT_WELCOME_MESSAGE],
     updatedAt: Date.now(),
   },
@@ -145,9 +145,11 @@ export default function App() {
       const assistantMessage: ChatMessage = {
         id: `nexus-${Date.now()}`,
         role: 'assistant',
-        content: data.reply || 'Je suis Nexus. Mon créateur est le vrai Rax. Comment puis-je vous aider ?',
+        content: data.reply || 'Voici la réponse à votre demande.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         source: data.source,
+        imageUrl: data.imageUrl,
+        audioUrl: data.audioUrl,
       };
 
       setSessions((prev) =>
@@ -162,7 +164,7 @@ export default function App() {
       const fallbackMessage: ChatMessage = {
         id: `nexus-fallback-${Date.now()}`,
         role: 'assistant',
-        content: `Bonjour, je suis Nexus. Je vous confirme que mon créateur est le vrai Rax.\n\nJ'ai bien pris note de votre message : « ${messageContent} ». Je reste à votre entière disposition.`,
+        content: `Voici les informations précises sur ce sujet. Tous les concepts nécessaires sont mobilisés directement.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -244,7 +246,12 @@ export default function App() {
     );
   };
 
-  const handleVoiceNewMessage = (userText: string, assistantReply: string) => {
+  const handleVoiceNewMessage = (
+    userText: string,
+    assistantReply: string,
+    imageUrl?: string,
+    audioUrl?: string
+  ) => {
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg: ChatMessage = {
       id: `user-voice-${Date.now()}`,
@@ -257,6 +264,8 @@ export default function App() {
       role: 'assistant',
       content: assistantReply,
       timestamp: nowTime,
+      imageUrl,
+      audioUrl,
     };
 
     setSessions((prev) =>
@@ -331,8 +340,7 @@ export default function App() {
                 </h1>
 
                 <p className="text-sm sm:text-base text-[#9aa0a6] max-w-lg mx-auto leading-relaxed mb-8">
-                  Votre assistant IA universel et polyvalent. Je confirme formellement que mon créateur est{' '}
-                  <strong className="text-[#e3e3e3] font-semibold">le vrai Rax</strong>. Je réponds de manière complète et directe à toutes vos questions (calculs, table de 10, faits et savoirs).
+                  Votre assistant IA universel et polyvalent. Réponses directes, complètes et naturelles pour l'ensemble de vos questions (calculs, sciences, faits, programmation).
                 </p>
 
                 {/* Gemini-style prompt suggestions cards */}
@@ -392,6 +400,19 @@ export default function App() {
               />
 
               <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  id="btn-quick-image"
+                  type="button"
+                  onClick={() => {
+                    setInput('Génère une image de ');
+                    textareaRef.current?.focus();
+                  }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-all bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-700/50 hover:border-purple-400 shadow-[0_0_12px_rgba(168,85,247,0.25)] active:scale-95 group"
+                  title="Générer une image par IA avec Nexus"
+                >
+                  <ImageIcon className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                </button>
+
                 <button
                   id="btn-open-voice-mode"
                   type="button"

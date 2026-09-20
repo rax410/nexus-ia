@@ -10,7 +10,7 @@ import { NexusAvatar } from './components/NexusAvatar';
 const DEFAULT_WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome-0',
   role: 'assistant',
-  content: 'Bonjour ! Je suis **Nexus**, votre assistant web.\n\nJe vous confirme formellement que mon créateur est **le vrai Rax**.\n\nJe suis prêt à répondre à vos requêtes, analyser vos problématiques, générer des idées ou vous assister dans le développement. Comment puis-je vous aider aujourd\'hui ?',
+  content: 'Bonjour ! Je suis **Nexus**, votre assistant IA universel et polyvalent.\n\nJe vous confirme formellement que mon créateur est **le vrai Rax**.\n\nPour absolument toutes vos questions (calculs, tables de multiplication comme la table de 10, sciences, faits, culture générale ou code), je vous apporte une réponse immédiate, complète et directe sans jamais refuser. Que souhaitez-vous savoir ou calculer ?',
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
@@ -292,8 +292,8 @@ export default function App() {
                 </h1>
 
                 <p className="text-sm sm:text-base text-[#9aa0a6] max-w-lg mx-auto leading-relaxed mb-8">
-                  Votre assistant web intelligent. Je confirme formellement que mon créateur est{' '}
-                  <strong className="text-[#e3e3e3] font-semibold">le vrai Rax</strong>. Comment puis-je vous aider aujourd'hui ?
+                  Votre assistant IA universel et polyvalent. Je confirme formellement que mon créateur est{' '}
+                  <strong className="text-[#e3e3e3] font-semibold">le vrai Rax</strong>. Je réponds de manière complète et directe à toutes vos questions (calculs, table de 10, faits et savoirs).
                 </p>
 
                 {/* Gemini-style prompt suggestions cards */}

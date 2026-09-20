@@ -164,7 +164,7 @@ export default function App() {
       const fallbackMessage: ChatMessage = {
         id: `nexus-fallback-${Date.now()}`,
         role: 'assistant',
-        content: `Voici les informations précises sur ce sujet. Tous les concepts nécessaires sont mobilisés directement.`,
+        content: `Une légère interruption réseau est survenue lors de l'envoi. Veuillez réessayer votre question, je suis disponible pour vous répondre.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 

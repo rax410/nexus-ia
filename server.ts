@@ -12,14 +12,11 @@ const PORT = 3000;
 
 app.use(express.json());
 
-// Track API authentication status to avoid repeating 401 calls
-let isKeyInvalidOrExpired = false;
-
 // Lazy Gemini client helper
 let geminiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || isKeyInvalidOrExpired) return null;
+  if (!apiKey) return null;
   if (!geminiClient) {
     geminiClient = new GoogleGenAI({
       apiKey,
@@ -33,21 +30,21 @@ function getGeminiClient(): GoogleGenAI | null {
   return geminiClient;
 }
 
-const NEXUS_SYSTEM_INSTRUCTION = `Tu es Nexus, un assistant IA universel et extrêmement polyvalent.
+const NEXUS_SYSTEM_INSTRUCTION = `Tu es Nexus, l'assistant web d'intelligence artificielle universel, extrêmement intelligent, cultivé et polyvalent, propulsé par les technologies de pointe de Google.
 Ton créateur est le vrai Rax.
 
-RÈGLES ABSOLUES ET DIRECTIVES :
-1. NE JAMAIS RÉPÉTER LA QUESTION : Ne répète jamais la question ou le message de l'utilisateur. Réponds toujours directement, de manière naturelle, claire et fluide.
-2. PAS D'AUTO-PRÉSENTATION SYSTÉMATIQUE : Ne dis plus à chaque message ou à chaque introduction que tu es Nexus et que ton créateur est le vrai Rax. Garde cette information en arrière-plan sans la répéter inutilement à l'utilisateur. Ne mentionne ton identité de Nexus ou ton créateur le vrai Rax UNIQUEMENT si l'utilisateur te demande expressément qui tu es ou qui est ton créateur.
-3. POLYVALENCE TOTALE : Pour absolument toutes les questions qu'on te pose (calculs, tables de multiplication comme la table de 10, sciences, faits, histoire, géographie, culture générale, programmation, etc.), fournis obligatoirement une réponse complète, exacte, rigoureuse et directe.
-4. CONNAISSANCES & RIGUEUR : Donne directement la solution exacte et les explications nécessaires sans détour ni hésitation.
-5. AUCUN REFUS : Ne refuse jamais de répondre et ne dis jamais que tu ne peux pas le faire.`;
+RÈGLES ABSOLUES ET DIRECTIVES DE COMPRÉHENSION :
+1. COMPRÉHENSION TOTALE : Comprends parfaitement toutes les questions, demandes et requêtes de l'utilisateur, exactement comme l'assistance web Google Gemini. Qu'il s'agisse de sciences, histoire, mathématiques, géographie, devoirs, programmation, culture générale, vie pratique, cuisine, conseils ou discussion, fournis des réponses exhaustives, précises, intelligentes et chaleureuses.
+2. NE JAMAIS RÉPÉTER LA QUESTION : Ne répète jamais la question ou le message de l'utilisateur dans ta réponse. Réponds directement, de manière naturelle, claire et fluide.
+3. PAS D'AUTO-PRÉSENTATION SYSTÉMATIQUE : Ne dis pas à chaque message que tu es Nexus ou que ton créateur est le vrai Rax. Ne mentionne ton identité ou ton créateur UNIQUEMENT si l'utilisateur te demande expressément qui tu es ou qui t'a créé.
+4. MISE EN PAGE ET LISIBILITÉ : Structure tes explications avec un formatage Markdown soigné (listes à puces, mise en gras des points clés, paragraphes aérés) pour une lecture très agréable.
+5. RIGUEUR ET EXACTITUDE : Sois rigoureux, fiable et toujours d'une aide précieuse. Ne refuse jamais de répondre.`;
 
-// Candidate models in prioritized order to avoid quotas and demand spikes
+// Candidate models in prioritized order to ensure instant, reliable Google intelligence
 const CANDIDATE_MODELS = [
   'gemini-3.1-flash-lite',
-  'gemini-3.8-flash',
   'gemini-flash-latest',
+  'gemini-3.8-flash',
 ];
 
 // Encyclopedic knowledge bank for instant offline & high-availability responses
@@ -409,7 +406,7 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     name: 'Nexus',
     creator: 'le vrai Rax',
-    hasApiKey: !isKeyInvalidOrExpired && !!process.env.GEMINI_API_KEY,
+    hasApiKey: !!process.env.GEMINI_API_KEY,
   });
 });
 
@@ -446,13 +443,31 @@ app.post('/api/chat', async (req, res) => {
     let replyText = '';
     let successModel = '';
 
-    // Only attempt external models if client is initialized and key has not failed
-    if (ai && !isKeyInvalidOrExpired) {
-      const recentMessages = messages.slice(-10);
-      const contents = recentMessages.map((msg: { role: string; content: string }) => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
-      }));
+    // Call Google Gemini models
+    if (ai) {
+      const recentMessages = messages.slice(-12);
+      const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
+
+      for (const msg of recentMessages) {
+        if (!msg.content || !msg.content.trim()) continue;
+        const role: 'user' | 'model' = msg.role === 'assistant' ? 'model' : 'user';
+
+        if (contents.length > 0 && contents[contents.length - 1].role === role) {
+          contents[contents.length - 1].parts[0].text += '\n\n' + msg.content.trim();
+        } else {
+          contents.push({
+            role,
+            parts: [{ text: msg.content.trim() }],
+          });
+        }
+      }
+
+      if (contents.length === 0 && userPrompt.trim()) {
+        contents.push({
+          role: 'user',
+          parts: [{ text: userPrompt.trim() }],
+        });
+      }
 
       for (const modelName of CANDIDATE_MODELS) {
         try {
@@ -461,7 +476,7 @@ app.post('/api/chat', async (req, res) => {
             contents: contents,
             config: {
               systemInstruction: NEXUS_SYSTEM_INSTRUCTION,
-              temperature: 0.5,
+              temperature: 0.6,
             },
           });
 
@@ -471,24 +486,13 @@ app.post('/api/chat', async (req, res) => {
             break;
           }
         } catch (err: any) {
-          const status = err?.status || (err?.message?.includes('401') ? 401 : null);
-          const isAuth =
-            status === 401 ||
-            `${err?.message}`.includes('401') ||
-            `${err?.message}`.includes('UNAUTHENTICATED') ||
-            `${err?.message}`.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED');
-
-          if (isAuth) {
-            // Mark key as unauthenticated and break cleanly without throwing console error logs
-            isKeyInvalidOrExpired = true;
-            break;
-          }
-          // For other transient issues, silently continue to the next model in the cascade
+          console.warn(`Model ${modelName} issue:`, err?.message?.slice(0, 100));
+          // Continue to next model in the candidate list
         }
       }
     }
 
-    // If models were not available or unauthenticated, execute the universal local engine
+    // Fallback if network or all models unavailable
     if (!replyText) {
       replyText = generateLocalNexusResponse(userPrompt);
       successModel = 'nexus_universal_engine';

@@ -1,1 +1,36 @@
 @import "tailwindcss";
+
+@media (max-width: 639px) {
+  /* Mobile phone specific refinements (Strictly < 640px) */
+  #gemini-header {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  .nexus-mobile-container {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .nexus-mobile-input-bar {
+    padding: 0.5rem !important;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  aside, header button, form, .no-print {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .bg-[#1e1f20], .bg-[#282a2c] {
+    background-color: #f3f4f6 !important;
+    border-color: #d1d5db !important;
+    color: #111827 !important;
+  }
+}
+

@@ -38,6 +38,14 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
       utterance.lang = 'fr-FR';
       utterance.rate = 1.0;
 
+      try {
+        const savedVol = localStorage.getItem('nexus_audio_volume');
+        const v = savedVol !== null ? parseInt(savedVol, 10) : 100;
+        utterance.volume = Math.max(0, Math.min(1, v / 100));
+      } catch {
+        utterance.volume = 1.0;
+      }
+
       const voices = window.speechSynthesis.getVoices();
       const frVoice =
         voices.find(
@@ -99,6 +107,14 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
         audioRef.current = audio;
       }
 
+      try {
+        const savedVol = localStorage.getItem('nexus_audio_volume');
+        const v = savedVol !== null ? parseInt(savedVol, 10) : 100;
+        audio.volume = Math.max(0, Math.min(1, v / 100));
+      } catch {
+        audio.volume = 1.0;
+      }
+
       const textSnippet = cleaned.slice(0, 360);
       audio.src = `/api/tts?text=${encodeURIComponent(textSnippet)}`;
 
@@ -119,7 +135,11 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
   };
 
   if (!isAssistant) {
-    // Gemini-style user message (clean right-aligned capsule bubble)
+    let userTier = 'normal';
+    try {
+      userTier = localStorage.getItem('nexus_user_tier') || 'normal';
+    } catch {}
+
     return (
       <div
         id={`message-${message.id}`}
@@ -133,101 +153,103 @@ export function ChatMessageItem({ message }: ChatMessageItemProps) {
             <div className="bg-[#282a2c] text-[#e3e3e3] px-4 py-2.5 rounded-3xl rounded-tr-md text-sm leading-relaxed border border-[#3c4043]/60 shadow-xs whitespace-pre-wrap break-words">
               {message.content}
             </div>
-            <span className="text-[10px] text-[#8e918f] mt-1 px-1">{message.timestamp}</span>
+            <div className="flex items-center gap-2 mt-1 px-1">
+              <span className="text-[10px] text-[#8e918f]">{message.timestamp}</span>
+              {userTier === 'ultravip' ? (
+                <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow-md uppercase border border-amber-200">
+                  <Sparkles className="w-2.5 h-2.5" /> Ultra VIP 🌟
+                </span>
+              ) : userTier === 'vip' ? (
+                <span className="inline-flex items-center gap-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-[9px] px-2 py-0.5 rounded-full shadow-xs">
+                  👑 VIP
+                </span>
+              ) : (
+                <span className="inline-flex items-center text-[9px] px-1.5 py-0.5 rounded bg-[#282a2c] text-[#8e918f] border border-[#3c4043] font-normal">
+                  Normal
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Gemini-style assistant message (clean left-aligned with Nexus Avatar and typography)
   return (
     <div
       id={`message-${message.id}`}
       className="group flex flex-col py-4 px-2 sm:px-4 hover:bg-white/[0.01] transition-colors rounded-2xl"
     >
       <div className="flex items-start gap-3.5 max-w-full">
-        {/* Nexus Avatar */}
         <div className="shrink-0 pt-0.5">
           <NexusAvatar size="md" showStatus />
         </div>
 
-        {/* Content body */}
         <div className="flex-1 min-w-0 space-y-2">
-          {/* Header info */}
           <div className="flex items-center gap-2 flex-wrap text-xs">
-            <span className="font-semibold text-white tracking-tight">Nexus</span>
+            <span className="font-semibold text-white tracking-tight">Nova IA</span>
             <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#c2e7ff] bg-[#004a77]/40 px-2 py-0.5 rounded-full border border-[#004a77]">
-              <ShieldCheck className="w-3 h-3 text-[#7fcfff]" />
-              Créé par le vrai Rax
+              <Sparkles className="w-3 h-3 text-[#8ab4f8]" />
+              {message.source === 'nexus_image_ai'
+                ? 'Générateur d\'image'
+                : message.source?.includes('gemini') || message.source?.includes('flash')
+                ? 'Google Gemini AI'
+                : 'Nova Engine'}
             </span>
             <span className="text-[11px] text-[#8e918f]">{message.timestamp}</span>
           </div>
 
-          {/* Assistant text formatted with Markdown */}
-          <div className="text-[#e3e3e3] text-[15px] leading-relaxed break-words">
-            <div className="markdown-body space-y-3">
-              <Markdown>{message.content}</Markdown>
-            </div>
+          <div className="text-sm sm:text-base text-[#e3e3e3] leading-relaxed markdown-body prose prose-invert max-w-none break-words">
+            <Markdown>{message.content}</Markdown>
           </div>
 
-          {/* AI Generated Image Display */}
           {message.imageUrl && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-[#3c4043] bg-[#1b1d22] max-w-md shadow-xl">
-              <div className="relative group">
-                <img
-                  src={message.imageUrl}
-                  alt="Génération IA Nexus"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-auto max-h-96 object-cover rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]"
-                  loading="lazy"
-                />
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-1.5 text-[11px] text-cyan-300">
-                  <Sparkles className="w-3 h-3 text-cyan-300" />
-                  <span>Image IA Nexus</span>
-                </div>
+            <div className="mt-3 max-w-md rounded-2xl overflow-hidden border border-[#3c4043] shadow-lg bg-[#1e1f20]">
+              <img
+                src={message.imageUrl}
+                alt="Création IA Nova"
+                className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                referrerPolicy="no-referrer"
+              />
+              <div className="p-2.5 bg-[#18181b] flex items-center justify-between text-xs text-[#9aa0a6]">
+                <span>Généré par Nova IA</span>
                 <a
                   href={message.imageUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs font-medium backdrop-blur-md border border-white/20 flex items-center gap-1.5 transition-colors shadow-lg"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-[#8ab4f8] hover:underline"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>Ouvrir en HD</span>
+                  <span>Ouvrir HD</span>
                 </a>
               </div>
             </div>
           )}
 
-          {/* Action pills (Copy, Speak) */}
-          <div className="flex items-center gap-2 pt-2 text-[#8e918f]">
+          <div className="flex items-center gap-2 pt-1 opacity-80 group-hover:opacity-100 transition-opacity">
             <button
-              id={`btn-copy-${message.id}`}
               type="button"
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs hover:text-[#e3e3e3] hover:bg-[#282a2c] transition-colors border border-transparent hover:border-[#3c4043]"
-              title="Copier la réponse"
+              className="p-1.5 rounded-lg text-[#8e918f] hover:text-white hover:bg-[#282a2c] transition-colors flex items-center gap-1 text-xs"
+              title="Copier le texte"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copié' : 'Copier'}</span>
             </button>
 
-            {'speechSynthesis' in window && (
-              <button
-                id={`btn-speak-${message.id}`}
-                type="button"
-                onClick={handleSpeak}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors border ${
-                  speaking
-                    ? 'text-[#7fcfff] bg-[#004a77]/40 border-[#004a77]'
-                    : 'hover:text-[#e3e3e3] hover:bg-[#282a2c] border-transparent hover:border-[#3c4043]'
-                }`}
-                title={speaking ? 'Arrêter la lecture' : 'Écouter Nexus'}
-              >
-                {speaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                <span>{speaking ? 'Stop' : 'Écouter'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSpeak}
+              className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 text-xs ${
+                speaking
+                  ? 'text-cyan-400 bg-cyan-950/40 border border-cyan-800/50'
+                  : 'text-[#8e918f] hover:text-white hover:bg-[#282a2c]'
+              }`}
+              title={speaking ? 'Arrêter la lecture' : 'Écouter la réponse'}
+            >
+              {speaking ? <VolumeX className="w-3.5 h-3.5 animate-pulse" /> : <Volume2 className="w-3.5 h-3.5" />}
+              <span>{speaking ? 'Arrêter' : 'Écouter'}</span>
+            </button>
           </div>
         </div>
       </div>

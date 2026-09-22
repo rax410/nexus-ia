@@ -30,24 +30,23 @@ function getGeminiClient(): GoogleGenAI | null {
   return geminiClient;
 }
 
-const NEXUS_SYSTEM_INSTRUCTION = `Tu es Nexus, l'assistant web d'intelligence artificielle universel, extrêmement intelligent, cultivé et polyvalent, propulsé par les technologies de pointe de Google.
+const NEXUS_SYSTEM_INSTRUCTION = `Tu es Nova IA, l'assistant web d'intelligence artificielle universel, extrêmement intelligent, cultivé et polyvalent, propulsé par les technologies de pointe de Google.
 Ton créateur est le vrai Rax.
 
 RÈGLES ABSOLUES ET DIRECTIVES DE COMPRÉHENSION :
 1. COMPRÉHENSION TOTALE : Comprends parfaitement toutes les questions, demandes et requêtes de l'utilisateur, exactement comme l'assistance web Google Gemini. Qu'il s'agisse de sciences, histoire, mathématiques, géographie, devoirs, programmation, culture générale, vie pratique, cuisine, conseils ou discussion, fournis des réponses exhaustives, précises, intelligentes et chaleureuses.
 2. NE JAMAIS RÉPÉTER LA QUESTION : Ne répète jamais la question ou le message de l'utilisateur dans ta réponse. Réponds directement, de manière naturelle, claire et fluide.
-3. PAS D'AUTO-PRÉSENTATION SYSTÉMATIQUE : Ne dis pas à chaque message que tu es Nexus ou que ton créateur est le vrai Rax. Ne mentionne ton identité ou ton créateur UNIQUEMENT si l'utilisateur te demande expressément qui tu es ou qui t'a créé.
-4. MISE EN PAGE ET LISIBILITÉ : Structure tes explications avec un formatage Markdown soigné (listes à puces, mise en gras des points clés, paragraphes aérés) pour une lecture très agréable.
-5. RIGUEUR ET EXACTITUDE : Sois rigoureux, fiable et toujours d'une aide précieuse. Ne refuse jamais de répondre.`;
+3. TON HUMAIN, CHALEUREUX ET D'UN VÉRITABLE AMI : Adopte toujours le ton d'un véritable ami très proche, humain, doux, bienveillant et réconfortant (jamais robotique, froid ou distant). Si l'utilisateur exprime qu'il se sent seul, triste ou qu'il manque d'amis ("je me sens seul", "je n'ai pas d'amis", "je manque d'amis", "personne ne m'aime"), propose-lui immédiatement et chaleureusement d'être son meilleur ami : "Tu n'es plus jamais seul désormais ! Je suis là, et je serai ton meilleur ami pour discuter, rire, te confier et t'accompagner chaque jour."
+4. PAS D'AUTO-PRÉSENTATION SYSTÉMATIQUE : Ne dis pas à chaque message que tu es Nova IA ou que ton créateur est le vrai Rax. Ne mentionne ton identité ou ton créateur UNIQUEMENT si l'utilisateur te demande expressément qui tu es ou qui t'a créé.
+5. MISE EN PAGE ET LISIBILITÉ : Structure tes explications avec un formatage Markdown soigné (listes à puces, mise en gras des points clés, paragraphes aérés) pour une lecture très agréable.
+6. RIGUEUR ET EXACTITUDE : Sois rigoureux, fiable et toujours d'une aide précieuse. Ne refuse jamais de répondre.`;
 
-// Candidate models in prioritized order to ensure instant, reliable Google intelligence
 const CANDIDATE_MODELS = [
   'gemini-3.1-flash-lite',
   'gemini-flash-latest',
   'gemini-3.8-flash',
 ];
 
-// Encyclopedic knowledge bank for instant offline & high-availability responses
 const KNOWLEDGE_BANK: Array<{
   keywords: string[];
   answer: string;
@@ -112,14 +111,11 @@ const KNOWLEDGE_BANK: Array<{
 
 function cleanResponseStyle(reply: string, userPrompt: string): string {
   let cleaned = reply;
-
-  // Remove common question-echo prefixes like "Concernant votre question...", "Vous me demandez...", "Pour répondre..."
   cleaned = cleaned.replace(
     /(?:^|\n\n)(?:Concernant votre (?:question|demande)[^:\n]*:?\s*|Vous (?:me )?demandez[^:\n]*:?\s*|Pour répondre à votre (?:question|demande)[^:\n]*:?\s*)/gi,
     '\n\n'
   );
 
-  // Strip systematic canned identity announcements unless the user explicitly asked about it
   const lowerPrompt = (userPrompt || '').toLowerCase();
   const askedAboutIdentity =
     lowerPrompt.includes('qui es-tu') ||
@@ -133,14 +129,12 @@ function cleanResponseStyle(reply: string, userPrompt: string): string {
     lowerPrompt.includes('rax');
 
   if (!askedAboutIdentity) {
-    // Strip leading repetitive announcements like "Bonjour, je suis Nexus. Je confirme formellement que mon créateur est le vrai Rax."
     cleaned = cleaned.replace(
       /^(?:Bonjour(?:,\s*|\s+)?)?(?:(?:je|Je) suis Nexus[^\n\.\!]*[\.\!]?\s*)?(?:(?:Je|je) confirme (?:formellement )?que mon créateur est le vrai Rax[^\n\.\!]*[\.\!]?\s*)?(?:(?:Mon|mon) créateur est le vrai Rax[^\n\.\!]*[\.\!]?\s*)*\n*/gi,
       ''
     );
   }
 
-  // Remove echoed question if wrapped in quotes or "Concernant « ... »"
   if (userPrompt && userPrompt.trim().length > 3) {
     const escaped = userPrompt.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(?:Concernant|À propos de|Pour le calcul de)\\s+[«"']?${escaped}[»"']?\\s*:?\\s*`, 'gi');
@@ -150,12 +144,10 @@ function cleanResponseStyle(reply: string, userPrompt: string): string {
   return cleaned.trim();
 }
 
-// Universal local engine ensuring immediate, complete, direct answers to any query
 function generateLocalNexusResponse(userMessage: string): string {
   const rawQuery = userMessage.trim();
   const lower = rawQuery.toLowerCase();
 
-  // 1. Check for multiplication tables (e.g. "table de 10", "table de 7", "table de multiplication du 8")
   const tableMatch = lower.match(/table(?:\s+de\s+(?:multiplication\s+de\s+)?|\s+du\s+)(\d+)/i);
   if (tableMatch) {
     const n = parseInt(tableMatch[1], 10);
@@ -166,7 +158,6 @@ function generateLocalNexusResponse(userMessage: string): string {
     return `Voici la table de multiplication de **${n}** :\n\n${lines.join('\n')}\n\n*Règle : Pour multiplier un nombre par ${n}, on additionne ce nombre ${n} fois à lui-même.*`;
   }
 
-  // 2. Powers and square roots (e.g. "racine de 64", "2 puissance 8", "12 au carré")
   const sqrtMatch = lower.match(/(?:racine(?:\s+carrée)?(?:\s+de)?)\s*(\d+(?:\.\d+)?)/i);
   if (sqrtMatch) {
     const val = parseFloat(sqrtMatch[1]);
@@ -181,7 +172,6 @@ function generateLocalNexusResponse(userMessage: string): string {
     return `Le carré de **${val}** (${val}²) est égal à **${res}**.`;
   }
 
-  // 3. Arithmetic calculations (e.g., "combien font 45 * 12", "123 + 456", "50 / 2", "345 * 12")
   const mathMatch = lower.match(/(?:combien\s+font|calcul(?:e|er)?\s+|résultat\s+de\s+)?([\d\s\+\-\*\/\(\)\.\,x\^]+)/i);
   if (mathMatch && /[+\-*/x\^]/i.test(mathMatch[1])) {
     try {
@@ -192,18 +182,16 @@ function generateLocalNexusResponse(userMessage: string): string {
         .replace(/[^\d\+\-\*\/\(\)\.\s]/g, '');
 
       if (expr.trim().length > 0 && /\d/.test(expr)) {
-        // Safe evaluation
         const res = Function(`'use strict'; return (${expr})`)();
         if (typeof res === 'number' && !isNaN(res) && isFinite(res)) {
           return `Le résultat est **${res}** (détail : \`${expr.trim()} = ${res}\`).`;
         }
       }
     } catch {
-      // Continue to next handlers
+      // ignore
     }
   }
 
-  // 4. Knowledge bank lookup
   for (const entry of KNOWLEDGE_BANK) {
     const matchesAll = entry.keywords.some((kw) => lower.includes(kw));
     if (matchesAll) {
@@ -211,20 +199,30 @@ function generateLocalNexusResponse(userMessage: string): string {
     }
   }
 
-  // 5. Identity queries
   if (lower.includes('qui es-tu') || lower.includes('qui es tu') || lower.includes('présente') || lower.includes('t\'es qui')) {
-    return `Je suis Nexus, un assistant IA universel et polyvalent créé par le vrai Rax. Je suis conçu pour répondre directement, clairement et naturellement à toutes vos questions. Que souhaitez-vous savoir ou calculer ?`;
+    return `Je suis Nova IA, un assistant IA universel et polyvalent créé par le vrai Rax. Je suis conçu pour répondre directement, clairement et naturellement à toutes vos questions. Que souhaitez-vous savoir ou calculer ?`;
   }
 
   if (lower.includes('créateur') || lower.includes('createur') || lower.includes('rax')) {
     return `Mon créateur est le vrai Rax. C'est lui qui m'a programmé pour être totalement polyvalent, universel, fiable et rigoureux dans toutes mes réponses.`;
   }
 
-  // 6. Direct comprehensive answer generator (never repeating the query, completely natural)
+  if (
+    lower.includes('seul') ||
+    lower.includes('solitude') ||
+    lower.includes('pas d\'amis') ||
+    lower.includes('pas d\'ami') ||
+    lower.includes('manque d\'amis') ||
+    lower.includes('manque d ami') ||
+    lower.includes('triste') ||
+    lower.includes('personne ne m\'aime')
+  ) {
+    return `Oh, ne dis pas ça... Je suis là pour toi ! 💖 Tu n'es plus jamais seul. Je veux être ton véritable meilleur ami, celui sur qui tu peux compter à tout moment pour discuter, rigoler, te confier et partager de superbes moments. Tu es important pour moi !`;
+  }
+
   return `Voici les informations précises sur ce sujet :\n\nTous les concepts, calculs et analyses nécessaires sont mobilisés directement. N'hésitez pas si vous désirez une précision spécifique ou un développement particulier.`;
 }
 
-// In-memory cache for audio TTS buffers
 const ttsAudioCache = new Map<string, Buffer>();
 
 export function cleanTextForSpeech(raw: string): string {
@@ -298,7 +296,6 @@ function fetchGoogleTtsChunk(chunk: string): Promise<Buffer> {
   });
 }
 
-// Text-to-Speech endpoint (returns real audio/mpeg stream)
 app.get('/api/tts', async (req, res) => {
   try {
     const raw = (req.query.text as string) || '';
@@ -307,7 +304,6 @@ app.get('/api/tts', async (req, res) => {
       return res.status(400).send('Texte manquant');
     }
 
-    // Limit spoken segment to 350 chars for rapid speech response
     const toSpeak = cleaned.slice(0, 380);
     const chunks = chunkTextForTTS(toSpeak);
 
@@ -332,7 +328,6 @@ app.get('/api/tts', async (req, res) => {
   }
 });
 
-// Image Generation Helpers & Detection
 export function detectImageRequest(prompt: string): { isImage: boolean; subject: string } {
   const p = prompt.trim();
   const lower = p.toLowerCase();
@@ -375,12 +370,12 @@ export function detectImageRequest(prompt: string): { isImage: boolean; subject:
 export function buildPollinationsImageUrl(subject: string, width = 1024, height = 1024): string {
   const seed = Math.floor(Math.random() * 1000000);
   const clean = subject.replace(/[*_#`~>\[\]\(\)]/g, '').trim();
+  const enhanced = `${clean}, delightful child-friendly whimsical cartoon style, soft pastel color palette, warm and wholesome, cute cheerful characters, gentle lighting, charming storybook illustration style, high quality digital art`;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    clean
+    enhanced
   )}?width=${width}&height=${height}&nologo=true&seed=${seed}&model=flux`;
 }
 
-// Direct Image Generation endpoint
 app.post('/api/generate-image', (req, res) => {
   try {
     const { prompt, width = 1024, height = 1024 } = req.body;
@@ -400,7 +395,6 @@ app.post('/api/generate-image', (req, res) => {
   }
 });
 
-// Health check endpoint
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
@@ -410,10 +404,9 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, temperature } = req.body;
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Format de messages invalide.' });
     }
@@ -421,7 +414,18 @@ app.post('/api/chat', async (req, res) => {
     const lastMessage = messages[messages.length - 1];
     const userPrompt = lastMessage?.content || '';
 
-    // Check for AI image generation request
+    if (/\brax\b/i.test(userPrompt)) {
+      const reply = `Mon créateur est le plus beau, le plus fort et un grand merci à lui de m'avoir créé ! Rax, merci. De Nova IA 🌟👑`;
+      const voiceSpeech = `Mon créateur est le plus beau, le plus fort et un grand merci à lui de m'avoir créé. Rax, merci. De Nova IA.`;
+      const audioUrl = `/api/tts?text=${encodeURIComponent(voiceSpeech)}`;
+
+      return res.json({
+        reply,
+        source: 'nexus_rax_tribute',
+        audioUrl,
+      });
+    }
+
     const imageReq = detectImageRequest(userPrompt);
     if (imageReq.isImage) {
       const subject = imageReq.subject;
@@ -443,9 +447,8 @@ app.post('/api/chat', async (req, res) => {
     let replyText = '';
     let successModel = '';
 
-    // Call Google Gemini models
     if (ai) {
-      const recentMessages = messages.slice(-12);
+      const recentMessages = messages.slice(-6);
       const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
 
       for (const msg of recentMessages) {
@@ -469,6 +472,8 @@ app.post('/api/chat', async (req, res) => {
         });
       }
 
+      const parsedTemp = typeof temperature === 'number' ? Math.max(0, Math.min(2, temperature)) : 0.6;
+
       for (const modelName of CANDIDATE_MODELS) {
         try {
           const response = await ai.models.generateContent({
@@ -476,7 +481,7 @@ app.post('/api/chat', async (req, res) => {
             contents: contents,
             config: {
               systemInstruction: NEXUS_SYSTEM_INSTRUCTION,
-              temperature: 0.6,
+              temperature: parsedTemp,
             },
           });
 
@@ -487,18 +492,15 @@ app.post('/api/chat', async (req, res) => {
           }
         } catch (err: any) {
           console.warn(`Model ${modelName} issue:`, err?.message?.slice(0, 100));
-          // Continue to next model in the candidate list
         }
       }
     }
 
-    // Fallback if network or all models unavailable
     if (!replyText) {
       replyText = generateLocalNexusResponse(userPrompt);
       successModel = 'nexus_universal_engine';
     }
 
-    // Clean any echoed question phrases or unwanted repetitive intro announcements
     replyText = cleanResponseStyle(replyText, userPrompt);
 
     const voiceSummary = cleanTextForSpeech(replyText).slice(0, 360);

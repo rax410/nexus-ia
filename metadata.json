@@ -1,6 +1,6 @@
 {
-  "name": "Nexus - Assistant Web",
-  "description": "Assistant IA universel Nexus créé par le vrai Rax avec mode vocal interactif et génération d'images IA.",
+  "name": "Nova IA - Assistant Web",
+  "description": "Assistant IA universel Nova IA créé par le vrai Rax avec mode vocal interactif et génération d'images IA.",
   "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

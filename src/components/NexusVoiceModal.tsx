@@ -201,73 +201,9 @@ export function NexusVoiceModal({ isOpen, onClose, onNewMessage }: NexusVoiceMod
         setStatusMessage('Son coupé. Appuyez sur le rond pour parler.');
         return;
       }
-
-      // Stop any pending speech or audio
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-      }
-      if (speechIntervalRef.current) {
-        clearInterval(speechIntervalRef.current);
-        speechIntervalRef.current = null;
-      }
-
-      const cleanText = cleanMarkdownForVoice(textToSpeak);
-      const url =
-        providedAudioUrl ||
-        `/api/tts?text=${encodeURIComponent(cleanText.slice(0, 360))}`;
-
-      try {
-        let audio = audioPlayerRef.current;
-        if (!audio) {
-          audio = new Audio();
-          audioPlayerRef.current = audio;
-        }
-
-        audio.src = url;
-        audio.preload = 'auto';
-
-        audio.onplay = () => {
-          setVoiceState('speaking');
-          setStatusMessage('Nexus vous répond à voix haute...');
-
-          // Dynamic visualizer pulses during playback
-          speechIntervalRef.current = setInterval(() => {
-            setAudioLevel(Math.floor(Math.random() * 45) + 35);
-          }, 80);
-        };
-
-        audio.onended = () => {
-          if (speechIntervalRef.current) {
-            clearInterval(speechIntervalRef.current);
-            speechIntervalRef.current = null;
-          }
-          setAudioLevel(0);
-          setVoiceState('idle');
-          setStatusMessage('Appuyez ou restez appuyé sur le rond pour parler.');
-        };
-
-        audio.onerror = (e) => {
-          console.warn('Audio stream error, using speech synthesis fallback:', e);
-          fallbackToSpeechSynthesis(cleanText);
-        };
-
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn('Audio play prevented, fallback:', err);
-            fallbackToSpeechSynthesis(cleanText);
-          });
-        }
-      } catch (err) {
-        console.warn('Audio playback error:', err);
-        fallbackToSpeechSynthesis(cleanText);
-      }
+      fallbackToSpeechSynthesis(textToSpeak);
     },
-    [fallbackToSpeechSynthesis, isMuted]
+    [isMuted, fallbackToSpeechSynthesis]
   );
 
   // Stop currently playing voice
